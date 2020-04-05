@@ -3,7 +3,7 @@ const sinon = require('sinon');
 const AWS = require('aws-sdk');
 const alpha = require('alphavantage');
 const {S3Helper, DownloadHelper, downloadAll} = require('../../alphavantage-download');
-const {TS_FORMAT_DAILY, ALPHAVANTAGE_DAILY_EXAMPLE} = require('../../timeseries');
+const {TS_FORMAT_DAILY, ALPHAVANTAGE_DAILY_EXAMPLE, ALPHAVANTAGE_INTRADAY_EXAMPLE } = require('../../timeseries');
 
 const expect = chai.expect;
 
@@ -84,16 +84,18 @@ describe('AlphaVantage Download Tests', () => {
 			expect(saveDataToS3.getCall(1).args[0]).to.equal('data/daily/QQQ.json');
 		});
 
-		it.skip('should save intraday data to S3 for each symbol', async () => {			
-			// sandbox.stub(S3Helper.prototype, 'getSymbolsFromS3').callsFake(async () => ['SPY','QQQ']);
-			// const saveDataToS3 = sandbox.stub(S3Helper.prototype, 'saveDataToS3').callsFake(async () => { return true });
-			// const alpha = {data: {
-			// 	daily: sandbox.stub().callsFake(async () => { return ALPHAVANTAGE_DAILY_EXAMPLE})
-			// }};
+		it.only('should save intraday data to S3 for each symbol', async () => {			
+			sandbox.stub(S3Helper.prototype, 'getSymbolsFromS3').callsFake(async () => ['SPY','QQQ']);
+			const saveDataToS3 = sandbox.stub(S3Helper.prototype, 'saveDataToS3').callsFake(async () => { return true });
+			const alpha = {data: {
+				intraday: sandbox.stub().callsFake(async () => { return ALPHAVANTAGE_INTRADAY_EXAMPLE})
+			}};
 
-			// await downloadAll(cfg, params, alpha);
+			await downloadAll(cfg, {interval: '5min', symbolsFile: 'intraday.txt'}, alpha);
 			
-			// expect(saveDataToS3.calledTwice).to.be.true;
+			expect(saveDataToS3.calledTwice).to.be.true;
+			expect(saveDataToS3.getCall(0).args[0]).to.equal('data/intraday/5min/SPY.json');
+			expect(saveDataToS3.getCall(1).args[0]).to.equal('data/intraday/5min/QQQ.json');
 		});
 		
 		it('should handle AlphaVantage error', async () => {

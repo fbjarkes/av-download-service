@@ -62,9 +62,9 @@ class DownloadHelper {
 		return Promise.all(symbols.map(async (symbol) => {
 			logger.debug(`downloadIntraday(): Downloading intraday '${interval}' data for '${symbol}',  targetPath=${targetPath}`);
 			alpha.data
-				.intraday(symbol, interval)
-				.then(data => AlphaVantageConverter.convertDaily(data))
-				.then((ts) => s3Helper.saveDataToS3(ts, targetPath))
+				.intraday(symbol, 'compact', 'json', interval)
+				.then(data => AlphaVantageConverter.convertIntraday(data, interval))
+				.then((ts) => s3Helper.saveDataToS3(`${targetPath}/${symbol}.json`, ts))
 		}
 		));
 	}	
@@ -106,7 +106,7 @@ const downloadAll = async (config, {interval, symbolsFile}, av = alpha({ key: '1
 		case '15min':
 		case '30min':
 		case '60min':
-			symbols = await s3Helper.getSymbolsFromS3(symbolsFile);
+			symbols = await s3Helper.getSymbolsFromS3(`${config['S3_SYMBOL_PATH']}/${symbolsFile}`);
 			wrapped = limiter.wrap(downloadHelper.downloadIntraday);
 			result = await wrapped(symbols, interval, `${config['S3_PATH_INTRADAY']}/${interval}`, av, s3Helper);
 			break;

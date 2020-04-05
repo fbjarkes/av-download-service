@@ -69,27 +69,28 @@ const TS_FORMAT_INTRADAY = {
 	symbol: 'MSFT',
 	time_zone: 'US/Eastern',
 	interval: '5min',
+	last: "2020-03-24 16:00:00",
 	data: {
 		'2020-03-24 16:00:00': {
-			open: '148.1400',
-			high: '148.5900',
-			low: '147.1300',
-			close: '148.3500',
-			volume: '3813495'
+			open: Number('148.1400'),
+			high: Number('148.5900'),
+			low: Number('147.1300'),
+			close: Number('148.3500'),
+			volume: Number('3813495')
 		},
 		'2020-03-24 15:55:00': {
-			open: '146.0400',
-			high: '148.1900',
-			low: '145.5300',
-			close: '148.1300',
-			volume: '1830626'
+			open: Number('146.0400'),
+			high: Number('148.1900'),
+			low: Number('145.5300'),
+			close: Number('148.1300'),
+			volume: Number('1830626')
 		},
 		'2020-03-24 15:50:00': {
-			open: '147.2900',
-			high: '147.5900',
-			low: '145.6900',
-			close: '146.0600',
-			volume: '1107963'
+			open: Number('147.2900'),
+			high: Number('147.5900'),
+			low: Number('145.6900'),
+			close: Number('146.0600'),
+			volume: Number('1107963')
 		}
 	}
 };
@@ -134,6 +135,20 @@ class TimeSeriesDaily {
 	}
 }
 
+class TimeSeriesIntraday {
+	constructor(symbol, tz, last, interval) {
+		this.symbol = symbol;
+		this.time_zone = tz;
+		this.last = last,
+		this.interval = interval
+		this.data = {};
+	}
+
+	addOHLC(dateTime, ohlc) {
+		this.data[dateTime] = ohlc;
+	}
+}
+
 class AlphaVantageConverter {
 	static cleanData(data) {
 		return {
@@ -143,6 +158,15 @@ class AlphaVantageConverter {
 			close: Number(data['4. close']),
 			volume: Number(data['5. volume'])
 		};
+	}
+
+	static convertIntraday(data, interval) {
+		const timeSeries = new TimeSeriesIntraday(data['Meta Data']['2. Symbol'], data['Meta Data']['6. Time Zone'], data['Meta Data']['3. Last Refreshed'], data['Meta Data']['4. Interval']);
+		const series = data[`Time Series (${interval})`];
+		for (var key in series) {
+			timeSeries.addOHLC(key, AlphaVantageConverter.cleanData(series[key]));
+		}
+		return timeSeries;
 	}
 
 	static convertDaily(data) {
@@ -155,4 +179,4 @@ class AlphaVantageConverter {
 	}
 }
 
-module.exports = { TS_FORMAT_DAILY, TS_FORMAT_INTRADAY, AlphaVantageConverter, ALPHAVANTAGE_DAILY_EXAMPLE };
+module.exports = { TS_FORMAT_DAILY, TS_FORMAT_INTRADAY, AlphaVantageConverter, ALPHAVANTAGE_DAILY_EXAMPLE, ALPHAVANTAGE_INTRADAY_EXAMPLE };
