@@ -9,8 +9,8 @@ const main = async (symbol) => {
     const {parsed: cfg} = dotenv.config();
 	logger.info(`Using config config ${JSON.stringify(cfg)}`);
 	
-    if (argv.symbolsFile) {
-        await downloadAll(cfg, {'interval': '1d', 'symbolsFile': argv.symbolsFile}, alpha({ key: cfg['API_KEY'] }));
+    if (argv.symbolsFile && argv.interval) { 
+        return await downloadAll(cfg, {'interval': argv.interval, 'symbolsFile': argv.symbolsFile}, alpha({ key: cfg['API_KEY'] }));
     } 
 
 	if (argv.symbol) {
