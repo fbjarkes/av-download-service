@@ -1,4 +1,3 @@
-const argv = require('yargs').argv;
 const alpha = require('alphavantage');
 const AWS = require('aws-sdk');
 const logger = require('./logger');
@@ -15,11 +14,12 @@ class S3Helper {
     }
     
 	async getSymbolsFromS3(path) {
+		logger.debug(`getSymbolsFromS3(), path=${path}`);
 		const params = { Bucket: this.bucket, Key: path };
 		try {
 			const res = await this.s3.getObject(params).promise();
 			if (res.Body) {
-				return res.Body.toString().split('\n');
+				return res.Body.toString().split('\n').filter(symbol => symbol.length > 0 && !symbol.startsWith('#'));
 			} else {
 				console.log('No data in file', path);
 			}
@@ -31,9 +31,11 @@ class S3Helper {
 	}
 
 	async saveDataToS3(path, timeSeries) {
-		const params = { Bucket: this.bucket, Key: path, Body: timeSeries };
+		logger.debug(`saveDataToS3(), path=${path}`);
+		logger.silly(`timeseries=${JSON.stringify(timeSeries)}`);
+
+		const params = { Bucket: this.bucket, Key: path, Body: JSON.stringify(timeSeries, null, 2)};
 		try {
-			logger.debug(`saveDateToS3(): putObject with params ${params}`);
 			await this.s3.putObject(params).promise();
 			return true;
 		} catch (err) {
@@ -51,7 +53,7 @@ class DownloadHelper {
 			alpha.data
 				.daily(symbol)
 				.then(data => AlphaVantageConverter.convertDaily(data))
-				.then((ts) => s3Helper.saveDataToS3(ts, targetPath))
+				.then((ts) => s3Helper.saveDataToS3(`${targetPath}/${symbol}.json`, ts))
 		}
 		));
 	}
@@ -69,7 +71,7 @@ class DownloadHelper {
 }
 
 const downloadAll = async (config, {interval, symbolsFile}, av = alpha({ key: '1234' })) => {
-	logger.debug(`downloadAll(): symbolsFile=${symbolsFile}, interval=${interval}, config=${config}`);
+	logger.debug(`downloadAll(): symbolsFile=${symbolsFile}, interval=${interval}, config=${JSON.stringify(config, null, 2)}`);
 
 	if (!(config.API_KEY && config.S3_BUCKET && config.S3_SYMBOL_PATH && config.S3_PATH_DAILY && config.S3_PATH_INTRADAY)) {
 		throw new Error('Invalid config')
@@ -94,7 +96,7 @@ const downloadAll = async (config, {interval, symbolsFile}, av = alpha({ key: '1
 	let wrapped, result, symbols;
 	switch (interval) {
 		case '1d': 
-			symbols = await s3Helper.getSymbolsFromS3(symbolsFile);
+			symbols = await s3Helper.getSymbolsFromS3(`${config['S3_SYMBOL_PATH']}/${symbolsFile}`);
 			wrapped = limiter.wrap(downloadHelper.downloadDaily);
 			result = await wrapped(symbols, config['S3_PATH_DAILY'], av, s3Helper);
 			break;
@@ -116,23 +118,3 @@ const downloadAll = async (config, {interval, symbolsFile}, av = alpha({ key: '1
 };
 
 module.exports = { S3Helper, DownloadHelper, downloadAll };
-
-const main = async (symbol) => {
-	if (argv.symbol) {
-		const av = alpha({ key: '12345' });
-		let data;
-		switch (argv.interval) {
-			case '1d':
-				data = await av.data.daily(argv.symbol).then(AlphaVantageConverter.convertDaily);
-				break;
-			case '5min':
-				data = await av.data.intraday(argv.symbol);
-				break;
-			default:
-				console.log('Incorrect interval');
-		}
-		console.log(data);
-	}
-};
-
-main();

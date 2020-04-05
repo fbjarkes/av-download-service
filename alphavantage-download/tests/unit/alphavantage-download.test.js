@@ -24,7 +24,7 @@ describe('AlphaVantage Download Tests', () => {
 					promise: async () => {
 						return {
 							LastModified: new Date(),
-							Body: Buffer.from('SPY\nQQQ')
+							Body: Buffer.from('SPY\nQQQ\n#IWM\n')
 						};
 					}
 				});
@@ -38,11 +38,11 @@ describe('AlphaVantage Download Tests', () => {
 				const s3 = new AWS.S3();
 				const s3Helper = new S3Helper('bucket', s3);
 				const stub = sandbox.stub(s3, 'putObject');
-				stub.withArgs({Bucket: 'bucket', Key: 'test/test.txt', Body: TS_FORMAT_DAILY}).returns({
+				stub.withArgs({Bucket: 'bucket', Key: 'test/test.json', Body: JSON.stringify(TS_FORMAT_DAILY, null, 2)}).returns({
 					promise: async () => ({VersionId: 1})
 				});
 				
-				const res = await s3Helper.saveDataToS3('test/test.txt', TS_FORMAT_DAILY);
+				const res = await s3Helper.saveDataToS3('test/test.json', TS_FORMAT_DAILY);
 				expect(res).to.be.true;
 			});
 		});
@@ -70,7 +70,9 @@ describe('AlphaVantage Download Tests', () => {
 		});
 		it('should save daily data to S3 for each symbol', async () => {			
 			sandbox.stub(S3Helper.prototype, 'getSymbolsFromS3').callsFake(async () => ['SPY','QQQ']);
-			const saveDataToS3 = sandbox.stub(S3Helper.prototype, 'saveDataToS3').callsFake(async () => { return true });
+			const saveDataToS3 = sandbox.stub(S3Helper.prototype, 'saveDataToS3').callsFake(async path => { 
+				return true;
+			});
 			const alpha = {data: {
 				daily: sandbox.stub().callsFake(async () => { return ALPHAVANTAGE_DAILY_EXAMPLE})
 			}};
@@ -78,6 +80,8 @@ describe('AlphaVantage Download Tests', () => {
 			await downloadAll(cfg, params, alpha);
 			
 			expect(saveDataToS3.calledTwice).to.be.true;
+			expect(saveDataToS3.getCall(0).args[0]).to.equal('data/daily/SPY.json');
+			expect(saveDataToS3.getCall(1).args[0]).to.equal('data/daily/QQQ.json');
 		});
 
 		it.skip('should save intraday data to S3 for each symbol', async () => {			
