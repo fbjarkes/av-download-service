@@ -16,7 +16,6 @@ describe('AlphaVantage Download Tests', () => {
 		afterEach(() => {
 			sandbox.restore();
 		});
-	
 		describe('getSymbolsFromS3', () => {
 			it('should call S3 getObject and return symbols as array', async () => {
 				const s3 = new AWS.S3();
@@ -51,22 +50,46 @@ describe('AlphaVantage Download Tests', () => {
 
 	describe('downloadAll', () => {
 		let sandbox;
+		const cfg = {
+			API_KEY: 1234,
+			S3_BUCKET: 'bucket',
+			S3_SYMBOL_PATH: 'symbols',
+			S3_PATH_DAILY: 'data/daily',
+			S3_PATH_INTRADAY: 'data/intraday'
+		}
+		const params = {
+			interval: '1d',
+			symbolsFile: 'leaders.txt'
+		}
+		
 		beforeEach(() => {
 			sandbox = sinon.createSandbox();
 		});
 		afterEach(() => {
 			sandbox.restore();
 		});
-		it('should save to S3 for each symbol', async () => {			
+		it('should save daily data to S3 for each symbol', async () => {			
 			sandbox.stub(S3Helper.prototype, 'getSymbolsFromS3').callsFake(async () => ['SPY','QQQ']);
 			const saveDataToS3 = sandbox.stub(S3Helper.prototype, 'saveDataToS3').callsFake(async () => { return true });
 			const alpha = {data: {
 				daily: sandbox.stub().callsFake(async () => { return ALPHAVANTAGE_DAILY_EXAMPLE})
 			}};
 
-			await downloadAll({'S3_BUCKET': 'bucket', 'S3_DOWNLOAD_PATH_DAILY': 'daily'}, 'symbols/iwm.txt', alpha);
+			await downloadAll(cfg, params, alpha);
 			
 			expect(saveDataToS3.calledTwice).to.be.true;
+		});
+
+		it.skip('should save intraday data to S3 for each symbol', async () => {			
+			// sandbox.stub(S3Helper.prototype, 'getSymbolsFromS3').callsFake(async () => ['SPY','QQQ']);
+			// const saveDataToS3 = sandbox.stub(S3Helper.prototype, 'saveDataToS3').callsFake(async () => { return true });
+			// const alpha = {data: {
+			// 	daily: sandbox.stub().callsFake(async () => { return ALPHAVANTAGE_DAILY_EXAMPLE})
+			// }};
+
+			// await downloadAll(cfg, params, alpha);
+			
+			// expect(saveDataToS3.calledTwice).to.be.true;
 		});
 		
 		it('should handle AlphaVantage error', async () => {
@@ -75,9 +98,59 @@ describe('AlphaVantage Download Tests', () => {
 				daily: sandbox.stub().throws('Alpha Vantage Error')
 			}};
 			try {
-				await downloadAll({'S3_BUCKET': 'bucket', 'S3_DOWNLOAD_PATH_DAILY': 'daily'}, 'symbols/iwm.txt', alpha);
+				await downloadAll(cfg, params, alpha);
+				throw new Error('Fail');
 			} catch (e) {
 				expect(e).to.match(/Alpha Vantage Error/);
+			}
+		});
+
+		it('should handle invalid config', async () => {
+			const invalid = {
+				API_KEY: 1234,
+				S3_BUCKET: 'bucket',
+				S3_SYMBOL_PATH: '', // invalid
+				S3_PATH_DAILY: 'data/daily',
+				S3_PATH_INTRADAY: 'data/intraday'
+			}
+			try {
+				await downloadAll(invalid, params);
+				throw new Error('Fail');
+			} catch (e) {
+				expect(e).to.match(/Invalid config/);
+			}
+		});
+
+		it('should handle invalid symbols file', async () => {
+			const invalid = {
+				interval: '1d',
+				symbolsFile: '' // invalid
+			}
+			try {
+				await downloadAll(cfg, invalid);
+				throw new Error('Fail');
+			} catch (e) {
+				expect(e).to.match(/Invalid parameters/);
+			}
+		});
+
+		it('should handle invalid interval', async () => {
+			const cfg = {
+				API_KEY: 1234,
+				S3_BUCKET: 'bucket',
+				S3_SYMBOL_PATH: 'symbols',
+				S3_PATH_DAILY: 'data/daily',
+				S3_PATH_INTRADAY: 'data/intraday'
+			}
+			const params = {
+				interval: '240min', // invalid
+				symbolsFile: 'iwm.txt'
+			}
+			try {
+				await downloadAll(cfg, params);
+				throw new Error('Fail');
+			} catch (e) {
+				expect(e).to.match(/Invalid interval/);
 			}
 		});
 	});
